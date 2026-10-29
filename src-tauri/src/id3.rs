@@ -1,8 +1,7 @@
 use base64::Engine;
-use id3::{Tag, TagLike, Frame, Picture, Version};
+use id3::{Tag, TagLike, Frame, Version, frame};
 use std::fs::File;
 use std::path::Path;
-
 use crate::models::Id3Info;
 
 /// 从mp3文件路径读取ID3标签信息
@@ -18,9 +17,12 @@ pub fn read_id3(path: &str) -> anyhow::Result<Id3Info> {
     // 读取USLT同步歌词帧，取第一个
     let mut uslt_lyric = String::new();
     for frame in tag.frames() {
-        if let Frame::UnsynchronizedText(uslt) = frame {
-            uslt_lyric = uslt.text.to_string();
-            break;
+        if let Frame::UserText(_) = frame {
+        } else if let Frame::Other(ref inner) = frame {
+            if let Ok(uslt) = frame::UnsynchronizedText::try_from(inner) {
+                uslt_lyric = uslt.text;
+                break;
+            }
         }
     }
 
@@ -49,8 +51,8 @@ pub fn write_id3(path: &str, info: &Id3Info) -> anyhow::Result<()> {
     tag.set_title("");
     tag.set_artist("");
     tag.set_album("");
-    tag.set_year(0);
-    tag.set_track(0);
+    tag.set_year(0i32);
+    tag.set_track(0u32);
     tag.set_genre("");
 
     // 设置基础文本字段
@@ -63,7 +65,7 @@ pub fn write_id3(path: &str, info: &Id3Info) -> anyhow::Result<()> {
     if !info.album.is_empty() {
         tag.set_album(info.album.as_str());
     }
-    if let Ok(y) = info.year.parse::<u32>() {
+    if let Ok(y) = info.year.parse::<i32>() {
         tag.set_year(y);
     }
     if let Ok(track_num) = info.track.parse::<u32>() {
@@ -73,27 +75,39 @@ pub fn write_id3(path: &str, info: &Id3Info) -> anyhow::Result<()> {
         tag.set_genre(info.genre.as_str());
     }
 
-    // 清除旧封面，写入新封面
-    tag.remove_pictures();
+    // 清除旧封面
+    tag.remove_all_pictures();
     if !info.cover_base64.is_empty() {
         let img_bin = base64::engine::general_purpose::STANDARD.decode(info.cover_base64.as_bytes())?;
-        let picture = Picture {
+        let pic = frame::Picture {
             mime_type: "image/jpeg".to_string(),
-            picture_type: id3::PictureType::CoverFront,
+            picture_type: frame::PictureType::CoverFront,
             description: "front cover".to_string(),
             data: img_bin,
         };
-        tag.add_picture(picture);
+        tag.add_frame(Frame::Picture(pic));
     }
 
-    // 清除旧USLT，写入新内嵌歌词
-    tag.remove_frames(|f| matches!(f, Frame::UnsynchronizedText(_)));
+    // 删除全部旧USLT帧
+    let mut keep_frames = Vec::new();
+    for f in tag.frames() {
+        if let Frame::Other(ref inner) = f {
+            if frame::UnsynchronizedText::try_from(inner).is_ok() {
+                continue;
+            }
+        }
+        keep_frames.push(f.clone());
+    }
+    tag.set_frames(keep_frames);
+
+    // 写入新USLT
     if !info.uslt_lyric.is_empty() {
-        tag.add_frame(Frame::UnsynchronizedText(id3::UnsynchronizedText {
-            lang: b"eng".to_owned(),
-            description: "".to_string(),
+        let uslt = frame::UnsynchronizedText {
+            lang: b"eng".to_vec(),
+            description: String::new(),
             text: info.uslt_lyric.clone(),
-        }));
+        };
+        tag.add_frame(Frame::Other(frame::Content::UnsynchronizedText(uslt)));
     }
 
     // 写回原MP3文件，ID3v2.4
@@ -113,4 +127,3 @@ pub fn id3_has_diff(original: &Id3Info, edited: &Id3Info) -> bool {
         || original.cover_base64 != edited.cover_base64
         || original.uslt_lyric != edited.uslt_lyric
 }
-

@@ -1,15 +1,37 @@
 mod models;
 mod id3;
-mod audio;
 mod lrc;
 mod utils;
 
-use audio::{create_audio_state, SharedAudioState};
 use models::{AudioInfo, Id3Info, LyricLine, ResultWrap};
 use std::sync::Mutex;
 use utils::wrap_anyhow;
+use symphonia::core::formats::FormatOptions;
+use symphonia::core::io::MediaSourceStream;
+use symphonia::core::meta::MetadataOptions;
+use symphonia::core::probe::Hint;
 
-/// Tauri全局状态：内存中正在编辑的歌词，与播放器分离存储
+/// 获取mp3总时长，单位秒（仅元数据解析，不做播放）
+fn get_mp3_duration(path: &str) -> anyhow::Result<f64> {
+    let file = std::fs::File::open(path)?;
+    let mss = MediaSourceStream::new(Box::new(file), Default::default());
+    let mut hint = Hint::new();
+    hint.with_extension("mp3");
+    let fmt_opts = FormatOptions::default();
+    let meta_opts = MetadataOptions::default();
+    let probed = symphonia::default::get_probe().format(&hint, mss, &fmt_opts, &meta_opts)?;
+    let mut format = probed.format;
+    let track = format
+        .tracks()
+        .get(0)
+        .ok_or_else(|| anyhow::anyhow!("no audio track found"))?;
+    let time_base = track.codec_params.time_base.ok_or_else(|| anyhow::anyhow!("no time base"))?;
+    let total_ts = track.codec_params.n_frames.ok_or_else(|| anyhow::anyhow!("no frame count"))?;
+    let dur = time_base.calc_time(total_ts);
+    Ok(dur.seconds as f64 + dur.frac as f64 / 1_000_000_000.0)
+}
+
+/// Tauri全局状态：内存中正在编辑的歌词
 #[derive(Debug, Default)]
 pub struct AppEditState {
     pub current_mp3_path: Option<String>,
@@ -18,23 +40,19 @@ pub struct AppEditState {
 }
 
 #[tauri::command]
-fn read_mp3_meta(path: &str, audio_state: tauri::State<SharedAudioState>, edit_state: tauri::State<Mutex<AppEditState>>) -> ResultWrap<AudioInfo> {
-    // 1.读取ID3标签
+fn read_mp3_meta(path: &str, edit_state: tauri::State<Mutex<AppEditState>>) -> ResultWrap<AudioInfo> {
     let id3_info = match id3::read_id3(path) {
         Ok(v) => v,
         Err(e) => return ResultWrap::fail(&e.to_string()),
     };
-    // 2.加载音频到播放器
-    if let Err(e) = audio::load_audio(&audio_state, path) {
-        return ResultWrap::fail(&e.to_string());
-    }
-    let duration = audio::get_duration(&audio_state);
+    let duration = match get_mp3_duration(path) {
+        Ok(d) => d,
+        Err(_) => 0.0,
+    };
 
-    // 3.把原始信息存入AppEditState
     let mut st = edit_state.lock().unwrap();
     st.current_mp3_path = Some(path.to_string());
     st.original_id3 = Some(id3_info.clone());
-    // USLT原始文本转成空时间戳的歌词行
     st.edit_lyrics = lrc::plain_text_to_lyric_lines(&id3_info.uslt_lyric);
 
     let audio_info = AudioInfo {
@@ -81,53 +99,14 @@ fn parse_lrc_text(lrc_text: &str) -> ResultWrap<Vec<LyricLine>> {
     wrap_anyhow(lrc::parse_lrc(lrc_text))
 }
 
-// --------播放器命令--------
-#[tauri::command]
-fn play(audio_state: tauri::State<SharedAudioState>) -> ResultWrap<()> {
-    audio::play_audio(&audio_state);
-    ResultWrap::success((), "play")
-}
-
-#[tauri::command]
-fn pause(audio_state: tauri::State<SharedAudioState>) -> ResultWrap<()> {
-    audio::pause_audio(&audio_state);
-    ResultWrap::success((), "pause")
-}
-
-#[tauri::command]
-fn current_position(audio_state: tauri::State<SharedAudioState>) -> ResultWrap<f64> {
-    let pos = audio::current_pos(&audio_state);
-    ResultWrap::success(pos, "ok")
-}
-
-#[tauri::command]
-fn seek(audio_state: tauri::State<SharedAudioState>, sec: f64) -> ResultWrap<()> {
-    audio::seek_audio(&audio_state, sec);
-    ResultWrap::success((), format!("seek to {sec}").as_str())
-}
-
-#[tauri::command]
-fn get_audio_duration(audio_state: tauri::State<SharedAudioState>) -> ResultWrap<f64> {
-    let d = audio::get_duration(&audio_state);
-    ResultWrap::success(d, "ok")
-}
-
-#[tauri::command]
-fn get_is_playing(audio_state: tauri::State<SharedAudioState>) -> ResultWrap<bool> {
-    let b = audio::is_playing(&audio_state);
-    ResultWrap::success(b, "ok")
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let shared_audio = create_audio_state();
     let edit_state = Mutex::new(AppEditState::default());
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .manage(shared_audio)
         .manage(edit_state)
         .invoke_handler(tauri::generate_handler![
             read_mp3_meta,
@@ -136,13 +115,7 @@ pub fn run() {
             set_edit_lyrics,
             get_edit_lyrics,
             export_lrc_text,
-            parse_lrc_text,
-            play,
-            pause,
-            current_position,
-            seek,
-            get_audio_duration,
-            get_is_playing
+            parse_lrc_text
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

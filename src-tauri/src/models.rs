@@ -1,7 +1,7 @@
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 
 /// ID3标签信息，前后端IPC传递用
-#[derive(Debug, Clone, Serialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Id3Info {
     pub title: String,
@@ -17,7 +17,7 @@ pub struct Id3Info {
 }
 
 /// 单行歌词：支持多个时间戳（同一句歌词多行时间点）
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LyricLine {
     /// 时间戳数组，单位：秒，例如 [12.34, 15.67]
@@ -26,7 +26,7 @@ pub struct LyricLine {
 }
 
 /// 音频基础信息
-#[derive(Debug, Clone, Serialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AudioInfo {
     /// 总时长，单位秒
@@ -37,7 +37,7 @@ pub struct AudioInfo {
 }
 
 /// 后端返回通用结果包装，方便前端统一处理成功/失败
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResultWrap<T> {
     pub ok: bool,
