@@ -50,10 +50,11 @@
 
     <div class="lyric-editor">
       <div class="lyric-tool">
-          <button @click="insertAbove" :disabled="selectedIndex === null">⬆️选中行上方插入</button>
-          <button @click="insertBelow" :disabled="selectedIndex === null">⬇️选中行下方插入</button>
           <button @click="clearCurrentTimestamps" :disabled="selectedIndex === null">⏱️清除本行时间</button>
           <button @click="clearAllTimestamps">⚠️清除全部时间戳</button>
+          |
+          <button @click="insertAbove" :disabled="selectedIndex === null">⬆️选中行上方插入</button>
+          <button @click="insertBelow" :disabled="selectedIndex === null">⬇️选中行下方插入</button>
           <button @click="deleteSelected" :disabled="selectedIndex === null">🗑️删除当前行</button>
           <button @click="deleteAllLines">❗删除所有行</button>
           <button @click="moveUp" :disabled="selectedIndex === null || selectedIndex === 0">🔼上移</button>

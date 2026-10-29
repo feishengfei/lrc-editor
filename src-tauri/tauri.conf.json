@@ -12,9 +12,12 @@
   "app": {
     "windows": [
       {
-        "title": "tauri-app",
-        "width": 800,
-        "height": 600
+          "label": "main",
+          "title": "lrc‑editor",
+          "width": 1280,
+          "height": 800,
+          "center": true,
+          "resizable": true
       }
     ],
     "security": {
