@@ -98,6 +98,12 @@ const autoNextLine = ref(true)
 const importLrcModalOpen = ref(false)
 const importLrcContent = ref('')
 
+// ↓新增这里
+if (lyrics.value.length === 0) {
+    lyrics.value.push({ timestamps: [], text: '' })
+    selectedIndex.value = 0
+}
+
 // 仅清空当前行全部时间戳，保留文本，不删除行
 function clearCurrentTimestamps() {
   if (selectedIndex.value === null) return
@@ -199,6 +205,8 @@ function insertBelow() {
 
 // 清除全部行的时间戳，保留文本
 function clearAllTimestamps() {
+  const ok = window.confirm('确定要清空全部时间戳？')
+  if (!ok) return
   lyrics.value.forEach(line => {
     line.timestamps = []
   })
@@ -206,6 +214,8 @@ function clearAllTimestamps() {
 
 // 删除所有歌词行
 function deleteAllLines() {
+  const ok = window.confirm('确定要清空全部歌词？')
+  if (!ok) return
   lyrics.value = [{ timestamps: [], text: '' }]
   selectedIndex.value = 0
 }
