@@ -228,8 +228,6 @@ function insertBelow() {
 
 // 清除全部行的时间戳，保留文本
 function clearAllTimestamps() {
-  const ok = window.confirm('确定要清空全部时间戳？')
-  if (!ok) return
   lyrics.value.forEach(line => {
     line.timestamps = []
   })
@@ -237,8 +235,6 @@ function clearAllTimestamps() {
 
 // 删除所有歌词行
 function deleteAllLines() {
-  const ok = window.confirm('确定要清空全部歌词？')
-  if (!ok) return
   lyrics.value = [{ timestamps: [], text: '' }]
   selectedIndex.value = 0
 }
