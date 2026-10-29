@@ -1,0 +1,12 @@
+{
+  "identifier": "main",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:dialog:open",
+    "core:dialog:save",
+    "core:fs:scope",
+    "core:fs:read-file",
+    "core:fs:write-file"
+  ]
+}
