@@ -36,6 +36,7 @@
       <div class="lyric-tool">
         <button @click="addLyricLine">新增一行</button>
         <button @click="deleteSelected" :disabled="selectedIndex === null">删除</button>
+        <button @click="clearCurrentTimestamps" :disabled="selectedIndex === null">清除本行时间</button>
         <button @click="moveUp" :disabled="selectedIndex === null || selectedIndex === 0">上移</button>
         <button @click="moveDown" :disabled="selectedIndex === null || selectedIndex >= lyrics.length - 1">下移</button>
       </div>
@@ -72,7 +73,7 @@
 
 <script setup lang="ts">
 import { invoke } from '@tauri-apps/api/core'
-import { ref } from 'vue'
+import { ref, nextTick } from 'vue'
 import { convertFileSrc } from '@tauri-apps/api/core'
 import type { LyricLine } from './types'
 import { parseLrcText, exportLrcText, selectMp3File } from './api/backend'
@@ -89,6 +90,13 @@ const autoNextLine = ref(true)
 
 const importLrcModalOpen = ref(false)
 const importLrcContent = ref('')
+
+// 仅清空当前行全部时间戳，保留文本，不删除行
+function clearCurrentTimestamps() {
+  if (selectedIndex.value === null) return
+  const line = lyrics.value[selectedIndex.value]
+  line.timestamps = []
+}
 
 // 格式化秒 → 00:02.34
 function formatTime(sec: number): string {
@@ -155,8 +163,31 @@ function autoStampCurrentLine() {
   line.timestamps.push(currentTime.value)
   line.timestamps.sort((a, b) => a - b)
 
-  if (autoNextLine.value && selectedIndex.value < lyrics.value.length - 1) {
+  const needScroll = autoNextLine.value && selectedIndex.value < lyrics.value.length - 1
+  if (needScroll) {
     selectedIndex.value += 1
+    // 仅自动跳转场景执行滚动
+    nextTick(() => {
+      const listEl = document.querySelector('.lyric-list') as HTMLElement | null
+      const activeItem = document.querySelector('.lyric-item.active') as HTMLElement | null
+      if (!listEl || !activeItem) return
+
+      const listRect = listEl.getBoundingClientRect()
+      const itemRect = activeItem.getBoundingClientRect()
+      // 判断是否靠近列表末尾：最后2行则不做居中偏移
+      const isNearEnd = selectedIndex.value! >= lyrics.value.length - 2
+
+      // 只有元素底部跑出容器可视区域才滚动
+      if (itemRect.bottom > listRect.bottom) {
+        if (isNearEnd) {
+          // 末尾：直接滚动到让元素底部贴容器底部
+          activeItem.scrollIntoView({ block: 'end', behavior: 'smooth' })
+        } else {
+          // 中间区域：尽量放到视口偏中下位置
+          activeItem.scrollIntoView({ block: 'center', behavior: 'smooth' })
+        }
+      }
+    })
   }
 }
 
