@@ -1,160 +1,198 @@
-<script setup>
-import { ref } from "vue";
-import { invoke } from "@tauri-apps/api/core";
+<template>
+  <div class="app">
+    <div class="toolbar">
+      <button @click="handleSelectMp3">打开MP3</button>
+      <button @click="importLrcModalOpen = true">导入LRC</button>
+      <button @click="handleExportLrc">导出LRC</button>
+    </div>
 
-const greetMsg = ref("");
-const name = ref("");
+    <div class="player">
+      <audio ref="audioRef" @timeupdate="onTimeUpdate" @loadedmetadata="onAudioLoaded" />
+      <div class="player-row">
+        <button @click="togglePlay">{{ isPlaying ? '暂停' : '播放' }}</button>
+        <span>{{ formatTime(currentTime) }} / {{ formatTime(duration) }}</span>
+        <input
+          type="range"
+          min="0"
+          :max="duration"
+          step="0.01"
+          v-model.number="seekVal"
+          @change="onSeek"
+        />
+      </div>
+    </div>
 
-async function greet() {
-  // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-  greetMsg.value = await invoke("greet", { name: name.value });
+    <div class="lyric-editor">
+      <div class="lyric-tool">
+        <button @click="addLyricLine">新增一行</button>
+        <button @click="setTimestampToSelected" :disabled="selectedIndex === null">
+          ✅ 给选中行打时间戳({{formatTime(currentTime)}})
+        </button>
+        <button @click="deleteSelected" :disabled="selectedIndex === null">删除</button>
+        <button @click="moveUp" :disabled="selectedIndex === null || selectedIndex === 0">上移</button>
+        <button @click="moveDown" :disabled="selectedIndex === null || selectedIndex === lyrics.length - 1">下移</button>
+      </div>
+
+      <div class="lyric-list">
+        <div
+          v-for="(line, idx) in lyrics"
+          :key="idx"
+          class="lyric-item"
+          :class="{active: selectedIndex === idx}"
+          @click="selectedIndex = idx"
+        >
+          <span class="ts">
+            {{ line.timestamps.map(t => formatTime(t)).join(' / ') }}
+          </span>
+          <input v-model="line.text" placeholder="歌词文本" />
+        </div>
+      </div>
+    </div>
+
+    <!-- 导入LRC弹窗 -->
+    <div v-if="importLrcModalOpen" class="modal-mask" @click.self="importLrcModalOpen = false">
+      <div class="modal">
+        <h3>粘贴LRC文本</h3>
+        <textarea v-model="importLrcContent" rows="12"></textarea>
+        <div class="modal-buttons">
+          <button @click="importLrcModalOpen = false">取消</button>
+          <button @click="handleImportLrc">确认导入</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, watch } from 'vue'
+import type { LyricLine, AudioInfo } from './types'
+import { readMp3Meta, parseLrcText, exportLrcText, selectMp3File } from './api/backend'
+
+const audioRef = ref<HTMLAudioElement | null>(null)
+const isPlaying = ref(false)
+const currentTime = ref(0)
+const duration = ref(0)
+const seekVal = ref(0)
+
+const lyrics = ref<LyricLine[]>([])
+const selectedIndex = ref<number | null>(null)
+
+const importLrcModalOpen = ref(false)
+const importLrcContent = ref('')
+
+// 格式化秒 → 00:02.34
+function formatTime(sec: number): string {
+  const s = Math.max(0, sec)
+  const m = Math.floor(s / 60)
+  const rem = s - m * 60
+  return `${String(m).padStart(2, '0')}:${rem.toFixed(2).padStart(5, '0')}`
+}
+
+async function handleSelectMp3() {
+  const path = await selectMp3File()
+  if (!path) return
+  const info: AudioInfo = await readMp3Meta(path)
+  lyrics.value = info.lyrics
+  duration.value = info.duration
+  if (audioRef.value) {
+    audioRef.value.src = path
+  }
+}
+
+function togglePlay() {
+  if (!audioRef.value) return
+  if (isPlaying.value) {
+    audioRef.value.pause()
+  } else {
+    audioRef.value.play()
+  }
+  isPlaying.value = !isPlaying.value
+}
+
+function onTimeUpdate() {
+  if (!audioRef.value) return
+  currentTime.value = audioRef.value.currentTime
+  seekVal.value = currentTime.value
+}
+
+function onAudioLoaded() {
+  if (!audioRef.value) return
+  duration.value = audioRef.value.duration
+}
+
+function onSeek() {
+  if (!audioRef.value) return
+  audioRef.value.currentTime = seekVal.value
+  currentTime.value = seekVal.value
+}
+
+// 歌词操作
+function addLyricLine() {
+  lyrics.value.push({ timestamps: [], text: '' })
+  selectedIndex.value = lyrics.value.length - 1
+}
+
+function setTimestampToSelected() {
+  if (selectedIndex.value === null) return
+  const line = lyrics.value[selectedIndex.value]
+  line.timestamps.push(currentTime.value)
+  // 可选：排序时间戳
+  line.timestamps.sort((a, b) => a - b)
+}
+
+function deleteSelected() {
+  if (selectedIndex.value === null) return
+  lyrics.value.splice(selectedIndex.value, 1)
+  selectedIndex.value = null
+}
+
+function moveUp() {
+  if (selectedIndex.value === null || selectedIndex.value <= 0) return
+  const i = selectedIndex.value
+  const tmp = lyrics.value[i]
+  lyrics.value[i] = lyrics.value[i - 1]
+  lyrics.value[i - 1] = tmp
+  selectedIndex.value = i - 1
+}
+
+function moveDown() {
+  if (selectedIndex.value === null || selectedIndex.value >= lyrics.value.length - 1) return
+  const i = selectedIndex.value
+  const tmp = lyrics.value[i]
+  lyrics.value[i] = lyrics.value[i + 1]
+  lyrics.value[i + 1] = tmp
+  selectedIndex.value = i + 1
+}
+
+async function handleImportLrc() {
+  const list = await parseLrcText(importLrcContent.value)
+  lyrics.value = list
+  importLrcModalOpen = false
+  importLrcContent.value = ''
+}
+
+async function handleExportLrc() {
+  const lrcStr = await exportLrcText(lyrics.value)
+  console.log('导出LRC:\n', lrcStr)
+  // 可以后续加tauri保存文件，先console预览
+  alert('LRC文本已打印到控制台，可复制保存')
 }
 </script>
 
-<template>
-  <main class="container">
-    <h1>Welcome to Tauri + Vue</h1>
-
-    <div class="row">
-      <a href="https://vite.dev" target="_blank">
-        <img src="/vite.svg" class="logo vite" alt="Vite logo" />
-      </a>
-      <a href="https://tauri.app" target="_blank">
-        <img src="/tauri.svg" class="logo tauri" alt="Tauri logo" />
-      </a>
-      <a href="https://vuejs.org/" target="_blank">
-        <img src="./assets/vue.svg" class="logo vue" alt="Vue logo" />
-      </a>
-    </div>
-    <p>Click on the Tauri, Vite, and Vue logos to learn more.</p>
-
-    <form class="row" @submit.prevent="greet">
-      <input id="greet-input" v-model="name" placeholder="Enter a name..." />
-      <button type="submit">Greet</button>
-    </form>
-    <p>{{ greetMsg }}</p>
-  </main>
-</template>
-
 <style scoped>
-.logo.vite:hover {
-  filter: drop-shadow(0 0 2em #747bff);
-}
-
-.logo.vue:hover {
-  filter: drop-shadow(0 0 2em #249b73);
-}
-
-</style>
-<style>
-:root {
-  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  line-height: 24px;
-  font-weight: 400;
-
-  color: #0f0f0f;
-  background-color: #f6f6f6;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  -webkit-text-size-adjust: 100%;
-}
-
-.container {
-  margin: 0;
-  padding-top: 10vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  text-align: center;
-}
-
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: 0.75s;
-}
-
-.logo.tauri:hover {
-  filter: drop-shadow(0 0 2em #24c8db);
-}
-
-.row {
-  display: flex;
-  justify-content: center;
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-
-a:hover {
-  color: #535bf2;
-}
-
-h1 {
-  text-align: center;
-}
-
-input,
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  color: #0f0f0f;
-  background-color: #ffffff;
-  transition: border-color 0.25s;
-  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
-}
-
-button {
-  cursor: pointer;
-}
-
-button:hover {
-  border-color: #396cd8;
-}
-button:active {
-  border-color: #396cd8;
-  background-color: #e8e8e8;
-}
-
-input,
-button {
-  outline: none;
-}
-
-#greet-input {
-  margin-right: 5px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    color: #f6f6f6;
-    background-color: #2f2f2f;
-  }
-
-  a:hover {
-    color: #24c8db;
-  }
-
-  input,
-  button {
-    color: #ffffff;
-    background-color: #0f0f0f98;
-  }
-  button:active {
-    background-color: #0f0f0f69;
-  }
-}
-
+.app { padding: 16px; color: #222; }
+.toolbar button { margin-right: 8px; padding: 4px 8px; }
+.player { margin:12px 0; padding:12px; border:1px solid #eee; border-radius:6px; }
+.player-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.lyric-tool { margin:8px 0; }
+.lyric-tool button { margin-right:6px; padding:4px 8px; }
+.lyric-list { max-height: 60vh; overflow-y:auto; border:1px solid #eee; border-radius:6px; padding:8px; }
+.lyric-item { display:flex; gap:8px; padding:4px 6px; margin:4px 0; border-radius:4px; cursor:pointer; }
+.lyric-item.active { background: #e8f4ff; }
+.ts { min-width: 120px; font-family: monospace; color:#555; }
+.lyric-item input { flex:1; border:1px solid #ccc; padding:3px; }
+.modal-mask { position:fixed; inset:0; background:rgba(0,0,0,0.4); display:grid; place-items:center; z:100; }
+.modal { background:white; padding:16px; border-radius:8px; width:520px; }
+.modal textarea { width:100%; box-sizing:border-box; }
+.modal-buttons { margin-top:10px; display:flex; gap:8px; justify-content:flex-end; }
 </style>
