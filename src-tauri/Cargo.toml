@@ -1,0 +1,15 @@
+[package]
+name = "lrc-editor"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tauri = { version = "2.0" }
+tauri-plugin-shell = "2.0"
+serde = { version = "1.0", features = ["derive"] } # 前后端json序列化，传递歌词、id3数据
+id3 = "1.5" # ID3v2读写，支持封面APIC、USLT歌词字段，完美匹配你的需求
+symphonia = { version = "0.5", features = ["mp3", "std"] } # mp3解码、读取时长、播放控制
+symphonia-play = "0.5"
+thiserror = "1.0" # 自定义错误，方便返回给前端
+base64 = "0.22" # 封面图片二进制转base64传给前端渲染
+chrono = "0.4" # 时间辅助（可选）
