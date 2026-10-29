@@ -88,10 +88,9 @@ fn get_edit_lyrics(edit_state: tauri::State<Mutex<AppEditState>>) -> ResultWrap<
 }
 
 #[tauri::command]
-fn export_lrc_text(edit_state: tauri::State<Mutex<AppEditState>>) -> ResultWrap<String> {
-    let st = edit_state.lock().unwrap();
-    let lrc_text = lrc::export_lrc(&st.edit_lyrics);
-    ResultWrap::success(lrc_text, "ok")
+fn export_lrc_text(lyrics: Vec<LyricLine>) -> ResultWrap<String> {
+    let lrc_str = lrc::export_lrc(&lyrics);
+    ResultWrap::success(lrc_str, "ok")
 }
 
 #[tauri::command]

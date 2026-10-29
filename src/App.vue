@@ -3,7 +3,7 @@
     <div class="toolbar">
       <button @click="handleSelectMp3">打开MP3</button>
       <button @click="importLrcModalOpen = true">导入LRC</button>
-      <button @click="handleExportLrc">导出LRC</button>
+      <button @click="handleExportLrc">保存到下载目录 output.lrc</button>
     </div>
 
     <div class="player">
