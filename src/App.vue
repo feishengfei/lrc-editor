@@ -2,7 +2,8 @@
   <div class="app">
     <div class="toolbar">
       <button @click="handleSelectMp3">打开MP3</button>
-      <button @click="importLrcModalOpen = true">导入LRC</button>
+      <button @click="importLrcModalOpen = true">粘贴歌词</button>
+      <button @click="handleImportLrcFile">导入LRC</button>
       <button @click="handleExportLrc">保存到下载目录 output.lrc</button>
     </div>
 
@@ -63,7 +64,7 @@
     <!-- 导入LRC弹窗 -->
     <div v-if="importLrcModalOpen" class="modal-mask" @click.self="importLrcModalOpen = false">
       <div class="modal">
-        <h3>粘贴LRC文本</h3>
+        <h3>粘贴歌词</h3>
         <textarea v-model="importLrcContent" rows="12"></textarea>
         <div class="modal-buttons">
           <button @click="importLrcModalOpen = false">取消</button>
@@ -78,8 +79,11 @@
 import { invoke } from '@tauri-apps/api/core'
 import { ref, nextTick } from 'vue'
 import { convertFileSrc } from '@tauri-apps/api/core'
+import { open } from '@tauri-apps/plugin-dialog';
+import { readTextFile } from '@tauri-apps/plugin-fs';
 import type { LyricLine } from './types'
 import { parseLrcText, exportLrcText, selectMp3File } from './api/backend'
+
 
 const audioRef = ref<HTMLAudioElement | null>(null)
 const isPlaying = ref(false)
@@ -120,6 +124,30 @@ async function handleSelectMp3() {
   currentTime.value = 0
   seekVal.value = 0
   isPlaying.value = false
+}
+
+
+// 通过系统文件对话框选择本地 .lrc 文件导入
+async function handleImportLrcFile() {
+  const selected = await open({
+    filters: [{
+      name: "LRC歌词",
+      extensions: ["lrc"]
+    }],
+    multiple: false
+  })
+  if (selected === null) return;
+
+  const filePath = Array.isArray(selected) ? selected[0] : selected;
+  try {
+    const content = await readTextFile(filePath);
+    const list = await parseLrcText(content);
+    lyrics.value = list;
+    selectedIndex.value = 0;
+  } catch (err) {
+    console.error('读取LRC文件失败', err);
+    alert('读取LRC文件失败：' + err);
+  }
 }
 
 function togglePlay() {
