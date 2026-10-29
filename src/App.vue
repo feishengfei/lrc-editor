@@ -246,7 +246,7 @@ async function handleImportLrc() {
   const list = await parseLrcText(importLrcContent.value)
   lyrics.value = list
   selectedIndex.value = 0
-  importLrcModalOpen = false
+  importLrcModalOpen.value = false
   importLrcContent.value = ''
 }
 
