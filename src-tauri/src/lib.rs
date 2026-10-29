@@ -20,7 +20,7 @@ fn get_mp3_duration(path: &str) -> anyhow::Result<f64> {
     let fmt_opts = FormatOptions::default();
     let meta_opts = MetadataOptions::default();
     let probed = symphonia::default::get_probe().format(&hint, mss, &fmt_opts, &meta_opts)?;
-    let mut format = probed.format;
+    let format = probed.format;
     let track = format
         .tracks()
         .get(0)
