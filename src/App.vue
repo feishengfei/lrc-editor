@@ -99,6 +99,8 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { readTextFile } from '@tauri-apps/plugin-fs';
 import type { LyricLine } from './types'
 import { parseLrcText, exportLrcText, selectMp3File } from './api/backend'
+import { confirm } from '@tauri-apps/plugin-dialog';
+
 
 
 const audioRef = ref<HTMLAudioElement | null>(null)
@@ -228,14 +230,24 @@ function insertBelow() {
 }
 
 // 清除全部行的时间戳，保留文本
-function clearAllTimestamps() {
+async function clearAllTimestamps() {
+  const ok = await confirm('确定要清空全部时间戳？', {
+    title: '确认操作',
+    kind: 'warning'
+  })
+  if (!ok) return
   lyrics.value.forEach(line => {
     line.timestamps = []
   })
 }
 
 // 删除所有歌词行
-function deleteAllLines() {
+async function deleteAllLines() {
+  const ok = await confirm('确定要清空全部歌词？', {
+    title: '确认操作',
+    kind: 'warning'
+  })
+  if (!ok) return
   lyrics.value = [{ timestamps: [], text: '' }]
   selectedIndex.value = 0
 }
