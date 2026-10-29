@@ -1,16 +1,16 @@
 <template>
   <div class="app">
     <div class="toolbar">
-      <button @click="handleSelectMp3">打开MP3</button>
-      <button @click="importLrcModalOpen = true">粘贴歌词</button>
-      <button @click="handleImportLrcFile">导入LRC</button>
-      <button @click="handleExportLrc">保存到下载目录 output.lrc</button>
+      <button @click="handleSelectMp3">📂打开MP3</button>
+      <button @click="importLrcModalOpen = true">📋粘贴歌词</button>
+      <button @click="handleImportLrcFile">📁导入LRC</button>
+      <button @click="handleExportLrc">💾保存到下载目录 output.lrc</button>
     </div>
 
     <div class="player">
       <audio ref="audioRef" @timeupdate="onTimeUpdate" @loadedmetadata="onAudioLoaded" />
       <div class="player-row">
-        <button @click="togglePlay">{{ isPlaying ? '暂停' : '播放' }}</button>
+        <button @click="togglePlay">{{ isPlaying ? '⏸️暂停' : '▶️播放' }}</button>
         <span>{{ formatTime(currentTime) }} / {{ formatTime(duration) }}</span>
         <input
           type="range"
@@ -28,21 +28,21 @@
           开启自动下一行（打点后自动跳到下一行）
         </label>
         <button @click="autoStampCurrentLine" :disabled="selectedIndex === null || !isPlaying">
-          ✅ 打点并下一行
+          📌打点并下一行
         </button>
       </div>
     </div>
 
     <div class="lyric-editor">
       <div class="lyric-tool">
-          <button @click="insertAbove" :disabled="selectedIndex === null">选中行上方插入</button>
-          <button @click="insertBelow" :disabled="selectedIndex === null">选中行下方插入</button>
-          <button @click="clearCurrentTimestamps" :disabled="selectedIndex === null">清除本行时间</button>
-          <button @click="clearAllTimestamps">清除全部时间戳</button>
-          <button @click="deleteSelected" :disabled="selectedIndex === null">删除当前行</button>
-          <button @click="deleteAllLines">删除所有行</button>
-          <button @click="moveUp" :disabled="selectedIndex === null || selectedIndex === 0">上移</button>
-          <button @click="moveDown" :disabled="selectedIndex === null || selectedIndex >= lyrics.length - 1">下移</button>
+          <button @click="insertAbove" :disabled="selectedIndex === null">⬆️选中行上方插入</button>
+          <button @click="insertBelow" :disabled="selectedIndex === null">⬇️选中行下方插入</button>
+          <button @click="clearCurrentTimestamps" :disabled="selectedIndex === null">⏱️清除本行时间</button>
+          <button @click="clearAllTimestamps">⚠️清除全部时间戳</button>
+          <button @click="deleteSelected" :disabled="selectedIndex === null">🗑️删除当前行</button>
+          <button @click="deleteAllLines">❗删除所有行</button>
+          <button @click="moveUp" :disabled="selectedIndex === null || selectedIndex === 0">🔼上移</button>
+          <button @click="moveDown" :disabled="selectedIndex === null || selectedIndex >= lyrics.length - 1">🔽下移</button>
       </div>
 
       <div class="lyric-list">
