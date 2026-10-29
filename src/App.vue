@@ -71,6 +71,7 @@
 </template>
 
 <script setup lang="ts">
+import { invoke } from '@tauri-apps/api/core'
 import { ref } from 'vue'
 import { convertFileSrc } from '@tauri-apps/api/core'
 import type { LyricLine } from './types'
@@ -193,20 +194,23 @@ async function handleImportLrc() {
 
 async function handleExportLrc() {
   try {
-    const lrcStr = await exportLrcText(lyrics.value)
-    if (!lrcStr.trim()) {
+    // 新增调试打印，看原始invoke返回
+    const rawRes = await invoke('export_lrc_text', { lyrics: lyrics.value })
+    console.log('===raw invoke返回===', rawRes)
+
+    // 原来逻辑
+    const lrcStr = rawRes.data
+    if (!lrcStr?.trim()) {
       alert('歌词内容为空，无法导出')
       return
     }
-    // 构造blob，触发浏览器下载
-    const blob = new Blob([lrcStr], { type: 'text/plain;charset=utf-8' })
+    const blob = new Blob([lrcStr], { type: 'text/plain;charset=utf‑8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
     a.download = 'output.lrc'
     document.body.appendChild(a)
     a.click()
-    // 清理资源
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
   } catch (err) {
