@@ -192,10 +192,29 @@ async function handleImportLrc() {
 }
 
 async function handleExportLrc() {
-  const lrcStr = await exportLrcText(lyrics.value)
-  console.log('导出LRC:\n', lrcStr)
-  alert('LRC文本已打印到控制台，可复制保存')
+  try {
+    const lrcStr = await exportLrcText(lyrics.value)
+    if (!lrcStr.trim()) {
+      alert('歌词内容为空，无法导出')
+      return
+    }
+    // 构造blob，触发浏览器下载
+    const blob = new Blob([lrcStr], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'output.lrc'
+    document.body.appendChild(a)
+    a.click()
+    // 清理资源
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  } catch (err) {
+    console.error('导出失败', err)
+    alert('❌ 导出失败：' + err)
+  }
 }
+
 </script>
 
 <style scoped>
