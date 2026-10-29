@@ -34,11 +34,14 @@
 
     <div class="lyric-editor">
       <div class="lyric-tool">
-        <button @click="addLyricLine">新增一行</button>
-        <button @click="deleteSelected" :disabled="selectedIndex === null">删除</button>
-        <button @click="clearCurrentTimestamps" :disabled="selectedIndex === null">清除本行时间</button>
-        <button @click="moveUp" :disabled="selectedIndex === null || selectedIndex === 0">上移</button>
-        <button @click="moveDown" :disabled="selectedIndex === null || selectedIndex >= lyrics.length - 1">下移</button>
+          <button @click="insertAbove" :disabled="selectedIndex === null">选中行上方插入</button>
+          <button @click="insertBelow" :disabled="selectedIndex === null">选中行下方插入</button>
+          <button @click="clearCurrentTimestamps" :disabled="selectedIndex === null">清除本行时间</button>
+          <button @click="clearAllTimestamps">清除全部时间戳</button>
+          <button @click="deleteSelected" :disabled="selectedIndex === null">删除当前行</button>
+          <button @click="deleteAllLines">删除所有行</button>
+          <button @click="moveUp" :disabled="selectedIndex === null || selectedIndex === 0">上移</button>
+          <button @click="moveDown" :disabled="selectedIndex === null || selectedIndex >= lyrics.length - 1">下移</button>
       </div>
 
       <div class="lyric-list">
@@ -150,11 +153,35 @@ function onSeek() {
   currentTime.value = seekVal.value
 }
 
-// 歌词操作
-function addLyricLine() {
-  lyrics.value.push({ timestamps: [], text: '' })
-  selectedIndex.value = lyrics.value.length - 1
+// 在选中行上方插入空行
+function insertAbove() {
+  if (selectedIndex.value === null) return
+  const idx = selectedIndex.value
+  lyrics.value.splice(idx, 0, { timestamps: [], text: '' })
+  selectedIndex.value = idx
 }
+
+// 在选中行下方插入空行
+function insertBelow() {
+  if (selectedIndex.value === null) return
+  const idx = selectedIndex.value
+  lyrics.value.splice(idx + 1, 0, { timestamps: [], text: '' })
+  selectedIndex.value = idx + 1
+}
+
+// 清除全部行的时间戳，保留文本
+function clearAllTimestamps() {
+  lyrics.value.forEach(line => {
+    line.timestamps = []
+  })
+}
+
+// 删除所有歌词行
+function deleteAllLines() {
+  lyrics.value = [{ timestamps: [], text: '' }]
+  selectedIndex.value = 0
+}
+
 
 // 打点并自动切下一行
 function autoStampCurrentLine() {
