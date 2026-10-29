@@ -1,6 +1,13 @@
 import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
 
+export interface LrcParseResult {
+  ti:string
+  ar:string
+  al:string
+  lines:LyricLine[]
+}
+
 /** 读取mp3元信息（时长、歌词数组、id3） */
 export async function readMp3Meta(path: string): Promise<AudioInfo> {
   const res = await invoke<ResultWrap<AudioInfo>>('read_mp3_meta', { path })
@@ -8,16 +15,16 @@ export async function readMp3Meta(path: string): Promise<AudioInfo> {
   return res.data
 }
 
-/** 解析LRC字符串 → LyricLine[] */
-export async function parseLrcText(lrcText: string): Promise<LyricLine[]> {
-  const res = await invoke<ResultWrap<LyricLine[]>>('parse_lrc_text', { lrcText })
+/** 解析LRC字符串 */
+export async function parseLrcText(text:string):Promise<LrcParseResult>{
+  const res = await invoke<ResultWrap<LrcParseResult>>("parse_lrc_text",{lrc_text:text})
   if (!res.ok || !res.data) throw new Error(res.msg)
   return res.data
 }
 
 /** 导出歌词数组 → LRC字符串 */
-export async function exportLrcText(lyrics: LyricLine[]): Promise<string> {
-  const res = await invoke<ResultWrap<string>>('export_lrc_text', { lyrics })
+export async function exportLrcText(ti:string,ar:string,al:string,lyrics:LyricLine[]):Promise<string>{
+  const res = await invoke<ResultWrap<string>>("export_lrc_text",{ti,ar,al,lyrics})
   if (!res.ok || !res.data) throw new Error(res.msg)
   return res.data
 }

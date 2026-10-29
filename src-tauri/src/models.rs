@@ -25,6 +25,15 @@ pub struct LyricLine {
     pub text: String,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LrcParseResult {
+    pub ti: String,
+    pub ar: String,
+    pub al: String,
+    pub lines: Vec<LyricLine>,
+}
+
 /// 音频基础信息
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]

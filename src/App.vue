@@ -33,6 +33,21 @@
       </div>
     </div>
 
+    <div class="meta-inputs" style="display:flex;gap:12px;flex-wrap:wrap;margin:8px 0;">
+        <label>
+            标题(ti)：
+            <input v-model="lrcTi" placeholder="歌曲标题" />
+        </label>
+        <label>
+            歌手(ar)：
+            <input v-model="lrcAr" placeholder="歌手" />
+        </label>
+        <label>
+            专辑(al)：
+            <input v-model="lrcAl" placeholder="专辑" />
+        </label>
+    </div>
+
     <div class="lyric-editor">
       <div class="lyric-tool">
           <button @click="insertAbove" :disabled="selectedIndex === null">⬆️选中行上方插入</button>
@@ -98,7 +113,12 @@ const autoNextLine = ref(true)
 const importLrcModalOpen = ref(false)
 const importLrcContent = ref('')
 
-// ↓新增这里
+// LRC元信息 ti标题 ar歌手 al专辑
+const lrcTi = ref('')
+const lrcAr = ref('')
+const lrcAl = ref('')
+
+// 初始保留一个可编辑行
 if (lyrics.value.length === 0) {
     lyrics.value.push({ timestamps: [], text: '' })
     selectedIndex.value = 0
@@ -147,8 +167,11 @@ async function handleImportLrcFile() {
   const filePath = Array.isArray(selected) ? selected[0] : selected;
   try {
     const content = await readTextFile(filePath);
-    const list = await parseLrcText(content);
-    lyrics.value = list;
+    const ret = await parseLrcText(content);
+    lrcTi.value = ret.ti
+    lrcAr.value = ret.ar
+    lrcAl.value = ret.al
+    lyrics.value = ret.lines;
     selectedIndex.value = 0;
   } catch (err) {
     console.error('读取LRC文件失败', err);
@@ -281,8 +304,11 @@ function moveDown() {
 }
 
 async function handleImportLrc() {
-  const list = await parseLrcText(importLrcContent.value)
-  lyrics.value = list
+  const ret = await parseLrcText(importLrcContent.value)
+  lrcTi.value = ret.ti
+  lrcAr.value = ret.ar
+  lrcAl.value = ret.al
+  lyrics.value = ret.lines
   selectedIndex.value = 0
   importLrcModalOpen.value = false
   importLrcContent.value = ''
@@ -290,12 +316,7 @@ async function handleImportLrc() {
 
 async function handleExportLrc() {
   try {
-    // 新增调试打印，看原始invoke返回
-    const rawRes = await invoke('export_lrc_text', { lyrics: lyrics.value })
-    console.log('===raw invoke返回===', rawRes)
-
-    // 原来逻辑
-    const lrcStr = rawRes.data
+    const lrcStr = await exportLrcText(lrcTi.value,lrcAr.value,lrcAl.value,lyrics.value)
     if (!lrcStr?.trim()) {
       alert('歌词内容为空，无法导出')
       return

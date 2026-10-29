@@ -3,7 +3,7 @@ mod id3;
 mod lrc;
 mod utils;
 
-use models::{AudioInfo, Id3Info, LyricLine, ResultWrap};
+use models::{AudioInfo, Id3Info, LyricLine, LrcParseResult, ResultWrap};
 use std::sync::Mutex;
 use utils::wrap_anyhow;
 use symphonia::core::formats::FormatOptions;
@@ -88,13 +88,13 @@ fn get_edit_lyrics(edit_state: tauri::State<Mutex<AppEditState>>) -> ResultWrap<
 }
 
 #[tauri::command]
-fn export_lrc_text(lyrics: Vec<LyricLine>) -> ResultWrap<String> {
-    let lrc_str = lrc::export_lrc(&lyrics);
+fn export_lrc_text(ti:&str, ar:&str, al:&str, lyrics: Vec<LyricLine>) -> ResultWrap<String> {
+    let lrc_str = lrc::export_lrc(ti, ar, al, &lyrics);
     ResultWrap::success(lrc_str, "ok")
 }
 
-#[tauri::command]
-fn parse_lrc_text(lrc_text: &str) -> ResultWrap<Vec<LyricLine>> {
+#[tauri::command(rename_all = "snake_case")]
+fn parse_lrc_text(lrc_text: &str) -> ResultWrap<LrcParseResult> {
     wrap_anyhow(lrc::parse_lrc(lrc_text))
 }
 
