@@ -18,19 +18,26 @@
           step="0.01"
           v-model.number="seekVal"
           @change="onSeek"
+          :disabled="!duration"
         />
+      </div>
+      <div class="player-row">
+        <label>
+          <input type="checkbox" v-model="autoNextLine">
+          开启自动下一行（打点后自动跳到下一行）
+        </label>
+        <button @click="autoStampCurrentLine" :disabled="selectedIndex === null || !isPlaying">
+          ✅ 打点并下一行
+        </button>
       </div>
     </div>
 
     <div class="lyric-editor">
       <div class="lyric-tool">
         <button @click="addLyricLine">新增一行</button>
-        <button @click="setTimestampToSelected" :disabled="selectedIndex === null">
-          ✅ 给选中行打时间戳({{formatTime(currentTime)}})
-        </button>
         <button @click="deleteSelected" :disabled="selectedIndex === null">删除</button>
         <button @click="moveUp" :disabled="selectedIndex === null || selectedIndex === 0">上移</button>
-        <button @click="moveDown" :disabled="selectedIndex === null || selectedIndex === lyrics.length - 1">下移</button>
+        <button @click="moveDown" :disabled="selectedIndex === null || selectedIndex >= lyrics.length - 1">下移</button>
       </div>
 
       <div class="lyric-list">
@@ -64,9 +71,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import type { LyricLine, AudioInfo } from './types'
-import { readMp3Meta, parseLrcText, exportLrcText, selectMp3File } from './api/backend'
+import { ref } from 'vue'
+import { convertFileSrc } from '@tauri-apps/api/core'
+import type { LyricLine } from './types'
+import { parseLrcText, exportLrcText, selectMp3File } from './api/backend'
 
 const audioRef = ref<HTMLAudioElement | null>(null)
 const isPlaying = ref(false)
@@ -76,6 +84,7 @@ const seekVal = ref(0)
 
 const lyrics = ref<LyricLine[]>([])
 const selectedIndex = ref<number | null>(null)
+const autoNextLine = ref(true)
 
 const importLrcModalOpen = ref(false)
 const importLrcContent = ref('')
@@ -91,20 +100,26 @@ function formatTime(sec: number): string {
 async function handleSelectMp3() {
   const path = await selectMp3File()
   if (!path) return
-  const info: AudioInfo = await readMp3Meta(path)
-  lyrics.value = info.lyrics
-  duration.value = info.duration
-  if (audioRef.value) {
-    audioRef.value.src = path
-  }
+  if (!audioRef.value) return
+
+  // ✅ Tauri2 正确方式：convertFileSrc
+  const assetUrl = convertFileSrc(path)
+  audioRef.value.src = assetUrl
+  currentTime.value = 0
+  seekVal.value = 0
+  isPlaying.value = false
 }
 
 function togglePlay() {
-  if (!audioRef.value) return
+  if (!audioRef.value || !audioRef.value.src) return
   if (isPlaying.value) {
     audioRef.value.pause()
   } else {
     audioRef.value.play()
+      .catch(err => {
+        console.error('播放失败：', err)
+        alert('音频播放失败，' + err.message)
+      })
   }
   isPlaying.value = !isPlaying.value
 }
@@ -132,12 +147,16 @@ function addLyricLine() {
   selectedIndex.value = lyrics.value.length - 1
 }
 
-function setTimestampToSelected() {
+// 打点并自动切下一行
+function autoStampCurrentLine() {
   if (selectedIndex.value === null) return
   const line = lyrics.value[selectedIndex.value]
   line.timestamps.push(currentTime.value)
-  // 可选：排序时间戳
   line.timestamps.sort((a, b) => a - b)
+
+  if (autoNextLine.value && selectedIndex.value < lyrics.value.length - 1) {
+    selectedIndex.value += 1
+  }
 }
 
 function deleteSelected() {
@@ -167,6 +186,7 @@ function moveDown() {
 async function handleImportLrc() {
   const list = await parseLrcText(importLrcContent.value)
   lyrics.value = list
+  selectedIndex.value = 0
   importLrcModalOpen = false
   importLrcContent.value = ''
 }
@@ -174,7 +194,6 @@ async function handleImportLrc() {
 async function handleExportLrc() {
   const lrcStr = await exportLrcText(lyrics.value)
   console.log('导出LRC:\n', lrcStr)
-  // 可以后续加tauri保存文件，先console预览
   alert('LRC文本已打印到控制台，可复制保存')
 }
 </script>
@@ -183,7 +202,7 @@ async function handleExportLrc() {
 .app { padding: 16px; color: #222; }
 .toolbar button { margin-right: 8px; padding: 4px 8px; }
 .player { margin:12px 0; padding:12px; border:1px solid #eee; border-radius:6px; }
-.player-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.player-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:6px 0; }
 .lyric-tool { margin:8px 0; }
 .lyric-tool button { margin-right:6px; padding:4px 8px; }
 .lyric-list { max-height: 60vh; overflow-y:auto; border:1px solid #eee; border-radius:6px; padding:8px; }

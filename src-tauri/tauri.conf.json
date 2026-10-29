@@ -19,7 +19,11 @@
     ],
     "security": {
       "csp": null,
-      "capabilities": ["main"]
+      "capabilities": ["main"],
+      "assetProtocol": {
+          "enable": true,
+          "scope": ["$APPDATA/*", "$HOME/*"]
+      }
     }
   },
   "bundle": {
