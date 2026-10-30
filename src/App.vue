@@ -10,6 +10,9 @@
     <div class="player">
       <audio ref="audioRef" @timeupdate="onTimeUpdate" @loadedmetadata="onAudioLoaded" />
       <div class="player-row">
+        <button @click="autoStampCurrentLine" :disabled="selectedIndex === null || !isPlaying" style="min-width:50px;">
+          📌打点并下一行
+        </button>
         <button @click="togglePlay">{{ isPlaying ? '⏸️暂停' : '▶️播放' }}</button>
         <span>{{ formatTime(currentTime) }} / {{ formatTime(duration) }}</span>
         <input
@@ -20,16 +23,8 @@
           v-model.number="seekVal"
           @change="onSeek"
           :disabled="!duration"
+          style="flex:1;min-width:320px;"
         />
-      </div>
-      <div class="player-row">
-        <label>
-          <input type="checkbox" v-model="autoNextLine">
-          开启自动下一行（打点后自动跳到下一行）
-        </label>
-        <button @click="autoStampCurrentLine" :disabled="selectedIndex === null || !isPlaying">
-          📌打点并下一行
-        </button>
       </div>
     </div>
 
@@ -111,7 +106,6 @@ const seekVal = ref(0)
 
 const lyrics = ref<LyricLine[]>([])
 const selectedIndex = ref<number | null>(null)
-const autoNextLine = ref(true)
 
 const importLrcModalOpen = ref(false)
 const importLrcContent = ref('')
@@ -260,7 +254,7 @@ function autoStampCurrentLine() {
   line.timestamps.push(currentTime.value)
   line.timestamps.sort((a, b) => a - b)
 
-  const needScroll = autoNextLine.value && selectedIndex.value < lyrics.value.length - 1
+  const needScroll = selectedIndex.value < lyrics.value.length - 1
   if (needScroll) {
     selectedIndex.value += 1
     // 仅自动跳转场景执行滚动
@@ -351,7 +345,7 @@ async function handleExportLrc() {
 .app { padding: 16px; color: #222; }
 .toolbar button { margin-right: 8px; padding: 4px 8px; }
 .player { margin:12px 0; padding:12px; border:1px solid #eee; border-radius:6px; }
-.player-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:6px 0; }
+.player-row { display:flex; gap:12px; align-items:center; gap:12px;flex-wrap:nowrap; margin:8px 0; }
 .lyric-tool { margin:8px 0; }
 .lyric-tool button { margin-right:6px; padding:4px 8px; }
 .lyric-list { max-height: 60vh; overflow-y:auto; border:1px solid #eee; border-radius:6px; padding:8px; }
