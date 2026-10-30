@@ -1,19 +1,18 @@
 <template>
   <div class="app">
     <div class="toolbar">
-      <button @click="handleSelectMp3">📂打开MP3</button>
-      <button @click="importLrcModalOpen = true">📋粘贴歌词</button>
-      <button @click="handleImportLrcFile">📁导入LRC</button>
-      <button @click="handleExportLrc">💾保存到下载目录 output.lrc</button>
+      <button class="btn" @click="handleSelectMp3">📂打开MP3</button>
+      <button class="btn" @click="importLrcModalOpen = true">📋粘贴歌词</button>
+      <button class="btn" @click="handleImportLrcFile">📁导入LRC</button>
+      <button class="btn" @click="handleExportLrc">💾保存到下载目录 output.lrc</button>
     </div>
-
     <div class="player">
       <audio ref="audioRef" @timeupdate="onTimeUpdate" @loadedmetadata="onAudioLoaded" />
       <div class="player-row">
-        <button @click="autoStampCurrentLine" :disabled="selectedIndex === null || !isPlaying || isPreviewMode" style="min-width:50px;">
-          📌打点并下一行
+        <button class="btn" @click="autoStampCurrentLine" :disabled="selectedIndex === null || !isPlaying || isPreviewMode" style="min-width:50px;">
+          ⏱️计时并下一行
         </button>
-        <button @click="togglePlay">{{ isPlaying ? '⏸️暂停' : '▶️播放' }}</button>
+        <button class="btn" @click="togglePlay">{{ isPlaying ? '⏸️暂停' : '▶️播放' }}</button>
         <span>{{ formatTime(currentTime) }} / {{ formatTime(duration) }}</span>
         <input
           type="range"
@@ -25,15 +24,12 @@
           :disabled="!duration"
           style="flex:1;min-width:320px;"
         />
-        <!-- 预览切换按钮，外框突出 -->
-        <div style="border:2px solid #409eff; border-radius:6px; padding:2px 6px;">
-          <button @click="togglePreviewMode" :style="isPreviewMode ? 'background:#409eff;color:white' : ''">
-            {{ isPreviewMode ? '✏️编辑' : '🔍预览' }}
-          </button>
-        </div>
+        <!-- 预览切换按钮：移除外层多余边框div -->
+        <button class="btn btn-primary" @click="togglePreviewMode">
+          {{ isPreviewMode ? '✏️编辑' : '🔍预览' }}
+        </button>
       </div>
     </div>
-
     <div class="meta-inputs" style="display:flex;gap:12px;flex-wrap:wrap;margin:8px 0;">
         <label>
             标题(ti)：
@@ -48,20 +44,18 @@
             <input v-model="lrcAl" placeholder="专辑" />
         </label>
     </div>
-
     <div class="lyric-editor">
       <div class="lyric-tool">
-          <button @click="clearCurrentTimestamps" :disabled="selectedIndex === null || isPreviewMode">⏱️清除本行时间</button>
-          <button @click="clearAllTimestamps" :disabled="isPreviewMode">⚠️清除全部时间戳</button>
-          |
-          <button @click="insertAbove" :disabled="selectedIndex === null || isPreviewMode">⬆️选中行上方插入</button>
-          <button @click="insertBelow" :disabled="selectedIndex === null || isPreviewMode">⬇️选中行下方插入</button>
-          <button @click="deleteSelected" :disabled="selectedIndex === null || isPreviewMode">🗑️删除当前行</button>
-          <button @click="deleteAllLines" :disabled="isPreviewMode">❗删除所有行</button>
-          <button @click="moveUp" :disabled="selectedIndex === null || selectedIndex === 0 || isPreviewMode">🔼上移</button>
-          <button @click="moveDown" :disabled="selectedIndex === null || selectedIndex >= lyrics.length - 1 || isPreviewMode">🔽下移</button>
+          <button class="btn" @click="clearCurrentTimestamps" :disabled="selectedIndex === null || isPreviewMode">🧽清除本行时间</button>
+          <button class="btn" @click="clearAllTimestamps" :disabled="isPreviewMode">⚠️清除全部时间戳</button>
+          <span>|</span>
+          <button class="btn" @click="insertAbove" :disabled="selectedIndex === null || isPreviewMode">⬆️选中行上方插入</button>
+          <button class="btn" @click="insertBelow" :disabled="selectedIndex === null || isPreviewMode">⬇️选中行下方插入</button>
+          <button class="btn" @click="deleteSelected" :disabled="selectedIndex === null || isPreviewMode">🗑️删除当前行</button>
+          <button class="btn" @click="deleteAllLines" :disabled="isPreviewMode">❗删除所有行</button>
+          <button class="btn" @click="moveUp" :disabled="selectedIndex === null || selectedIndex === 0 || isPreviewMode">🔼上移</button>
+          <button class="btn" @click="moveDown" :disabled="selectedIndex === null || selectedIndex >= lyrics.length - 1 || isPreviewMode">🔽下移</button>
       </div>
-
       <div class="lyric-list">
         <div
           v-for="(line, idx) in lyrics"
@@ -80,15 +74,14 @@
         </div>
       </div>
     </div>
-
     <!-- 导入LRC弹窗 -->
     <div v-if="importLrcModalOpen" class="modal-mask" @click.self="importLrcModalOpen = false">
       <div class="modal">
         <h3>粘贴歌词</h3>
         <textarea v-model="importLrcContent" rows="12"></textarea>
         <div class="modal-buttons">
-          <button @click="importLrcModalOpen = false">取消</button>
-          <button @click="handleImportLrc">确认导入</button>
+          <button class="btn" @click="importLrcModalOpen = false">取消</button>
+          <button class="btn btn-primary" @click="handleImportLrc">确认导入</button>
         </div>
       </div>
     </div>
@@ -104,37 +97,28 @@ import { readTextFile } from '@tauri-apps/plugin-fs';
 import type { LyricLine } from './types'
 import { parseLrcText, exportLrcText, selectMp3File } from './api/backend'
 import { confirm } from '@tauri-apps/plugin-dialog';
-
-
-
 const audioRef = ref<HTMLAudioElement | null>(null)
 const isPlaying = ref(false)
 const currentTime = ref(0)
 const duration = ref(0)
 const seekVal = ref(0)
-
 const lyrics = ref<LyricLine[]>([])
 const selectedIndex = ref<number | null>(null)
-
 const importLrcModalOpen = ref(false)
 const importLrcContent = ref('')
-
 // LRC元信息 ti标题 ar歌手 al专辑
 const lrcTi = ref('')
 const lrcAr = ref('')
 const lrcAl = ref('')
-
 // ======预览模式新增状态======
 const isPreviewMode = ref(false)
 const previewActiveIdx = ref<number | null>(null)
 // =============================
-
 // 初始保留一个可编辑行
 if (lyrics.value.length === 0) {
     lyrics.value.push({ timestamps: [], text: '' })
     selectedIndex.value = 0
 }
-
 // 切换预览/编辑模式
 function togglePreviewMode(){
   isPreviewMode.value = !isPreviewMode.value
@@ -142,14 +126,12 @@ function togglePreviewMode(){
     previewActiveIdx.value = null
   }
 }
-
 // 仅清空当前行全部时间戳，保留文本，不删除行
 function clearCurrentTimestamps() {
   if (selectedIndex.value === null) return
   const line = lyrics.value[selectedIndex.value]
   line.timestamps = []
 }
-
 // 格式化秒 → 00:02.34
 function formatTime(sec: number): string {
   const s = Math.max(0, sec)
@@ -157,32 +139,22 @@ function formatTime(sec: number): string {
   const rem = s - m * 60
   return `${String(m).padStart(2, '0')}:${rem.toFixed(2).padStart(5, '0')}`
 }
-
 async function handleSelectMp3() {
   const path = await selectMp3File()
   if (!path) return
   if (!audioRef.value) return
-
-  // ✅ Tauri2 正确方式：convertFileSrc
   const assetUrl = convertFileSrc(path)
   audioRef.value.src = assetUrl
   currentTime.value = 0
   seekVal.value = 0
   isPlaying.value = false
 }
-
-
-// 通过系统文件对话框选择本地 .lrc 文件导入
 async function handleImportLrcFile() {
   const selected = await open({
-    filters: [{
-      name: "LRC歌词",
-      extensions: ["lrc"]
-    }],
+    filters: [{ name: "LRC歌词", extensions: ["lrc"] }],
     multiple: false
   })
   if (selected === null) return;
-
   const filePath = Array.isArray(selected) ? selected[0] : selected;
   try {
     const content = await readTextFile(filePath);
@@ -197,7 +169,6 @@ async function handleImportLrcFile() {
     alert('读取LRC文件失败：' + err);
   }
 }
-
 function togglePlay() {
   if (!audioRef.value || !audioRef.value.src) return
   if (isPlaying.value) {
@@ -211,38 +182,29 @@ function togglePlay() {
   }
   isPlaying.value = !isPlaying.value
 }
-
 function onTimeUpdate() {
   if (!audioRef.value) return
   currentTime.value = audioRef.value.currentTime
   seekVal.value = currentTime.value
-
-  // 预览模式时间匹配逻辑
   if(isPreviewMode.value){
     const now = currentTime.value
     let bestTs = -1.0
     let bestIdx:number|null = null
-    // 遍历全部行，找 <=now 的最大时间戳，相同时间取下标靠后的
     lyrics.value.forEach((line, idx)=>{
       for(const ts of line.timestamps){
         if(ts <= now && ts > bestTs){
           bestTs = ts
           bestIdx = idx
         }else if(ts <= now && ts === bestTs){
-          // 时间相等，直接覆盖为更靠后的下标
           bestIdx = idx
         }
       }
     })
-
     const oldIdx = previewActiveIdx.value
     previewActiveIdx.value = bestIdx
-
-    // 高亮行发生变化，执行滚动居中，增加防御判断
     if(bestIdx !== null && oldIdx !== bestIdx){
       nextTick(()=>{
         const items = document.querySelectorAll('.lyric-item')
-        // 边界保护：下标不能超过数组最大索引
         if (bestIdx >=0 && bestIdx < items.length) {
           const item = items[bestIdx] as HTMLElement
           item.scrollIntoView({ block:'center', behavior:'smooth' })
@@ -251,99 +213,68 @@ function onTimeUpdate() {
     }
   }
 }
-
 function onAudioLoaded() {
   if (!audioRef.value) return
   duration.value = audioRef.value.duration
 }
-
 function onSeek() {
   if (!audioRef.value) return
   audioRef.value.currentTime = seekVal.value
   currentTime.value = seekVal.value
 }
-
-// 在选中行上方插入空行
 function insertAbove() {
   if (selectedIndex.value === null) return
   const idx = selectedIndex.value
   lyrics.value.splice(idx, 0, { timestamps: [], text: '' })
   selectedIndex.value = idx
 }
-
-// 在选中行下方插入空行
 function insertBelow() {
   if (selectedIndex.value === null) return
   const idx = selectedIndex.value
   lyrics.value.splice(idx + 1, 0, { timestamps: [], text: '' })
   selectedIndex.value = idx + 1
 }
-
-// 清除全部行的时间戳，保留文本
 async function clearAllTimestamps() {
-  const ok = await confirm('确定要清空全部时间戳？', {
-    title: '确认操作',
-    kind: 'warning'
-  })
+  const ok = await confirm('确定要清空全部时间戳？', { title: '确认操作', kind: 'warning' })
   if (!ok) return
-  lyrics.value.forEach(line => {
-    line.timestamps = []
-  })
+  lyrics.value.forEach(line => { line.timestamps = [] })
 }
-
-// 删除所有歌词行
 async function deleteAllLines() {
-  const ok = await confirm('确定要清空全部歌词？', {
-    title: '确认操作',
-    kind: 'warning'
-  })
+  const ok = await confirm('确定要清空全部歌词？', { title: '确认操作', kind: 'warning' })
   if (!ok) return
   lyrics.value = [{ timestamps: [], text: '' }]
   selectedIndex.value = 0
 }
-
-
-// 打点并自动切下一行
 function autoStampCurrentLine() {
   if (selectedIndex.value === null) return
   const line = lyrics.value[selectedIndex.value]
   line.timestamps.push(currentTime.value)
   line.timestamps.sort((a, b) => a - b)
-
   const needScroll = selectedIndex.value < lyrics.value.length - 1
   if (needScroll) {
     selectedIndex.value += 1
-    // 仅自动跳转场景执行滚动
     nextTick(() => {
       const listEl = document.querySelector('.lyric-list') as HTMLElement | null
       const activeItem = document.querySelector('.lyric-item.active') as HTMLElement | null
       if (!listEl || !activeItem) return
-
-      const listRect = listEl.getBoundingClientRect()
       const itemRect = activeItem.getBoundingClientRect()
-      // 判断是否靠近列表末尾：最后2行则不做居中偏移
+      const listRect = listEl.getBoundingClientRect()
       const isNearEnd = selectedIndex.value! >= lyrics.value.length - 2
-
-      // 只有元素底部跑出容器可视区域才滚动
       if (itemRect.bottom > listRect.bottom) {
         if (isNearEnd) {
-          // 末尾：直接滚动到让元素底部贴容器底部
           activeItem.scrollIntoView({ block: 'end', behavior: 'smooth' })
         } else {
-          // 中间区域：尽量放到视口偏中下位置
           activeItem.scrollIntoView({ block: 'center', behavior: 'smooth' })
         }
       }
     })
   }
 }
-
 function deleteSelected() {
   if (selectedIndex.value === null) return
   lyrics.value.splice(selectedIndex.value, 1)
   selectedIndex.value = null
 }
-
 function moveUp() {
   if (selectedIndex.value === null || selectedIndex.value <= 0) return
   const i = selectedIndex.value
@@ -352,16 +283,14 @@ function moveUp() {
   lyrics.value[i - 1] = tmp
   selectedIndex.value = i - 1
 }
-
 function moveDown() {
-  if (selectedIndex.value === null || selectedIndex.value >= lyrics.value.length - 1) return
+  if (selectedIndex.value === null || selectedIndex.value >= lyrics.length - 1) return
   const i = selectedIndex.value
   const tmp = lyrics.value[i]
   lyrics.value[i] = lyrics.value[i + 1]
   lyrics.value[i + 1] = tmp
   selectedIndex.value = i + 1
 }
-
 async function handleImportLrc() {
   const ret = await parseLrcText(importLrcContent.value)
   lrcTi.value = ret.ti
@@ -372,7 +301,6 @@ async function handleImportLrc() {
   importLrcModalOpen.value = false
   importLrcContent.value = ''
 }
-
 async function handleExportLrc() {
   try {
     const lrcStr = await exportLrcText(lrcTi.value,lrcAr.value,lrcAl.value,lyrics.value)
@@ -394,35 +322,97 @@ async function handleExportLrc() {
     alert('❌ 导出失败：' + err)
   }
 }
-
 </script>
+
+<!-- 不带scoped：全局字体，作用到html/body，解决input宋体问题 -->
+<style>
+:root, html, body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  color: #222;
+  background-color: #ffffff;
+}
+input, textarea, select {
+  font-family: inherit;
+  font-size: inherit;
+}
+</style>
 
 <style scoped>
 .app { padding: 16px; color: #222; }
-.toolbar button { margin-right: 8px; padding: 4px 8px; }
+
+.btn {
+  font-family: inherit;
+  font-size: 13px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  background-color: #f1f3f4;
+  color: #202124;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: background-color 0.18s ease;
+  user-select: none;
+}
+.btn:hover {
+  background-color: #e8eaed;
+}
+.btn:active {
+  background-color: #dadce0;
+}
+.btn:disabled {
+  background-color: #f8f9fa;
+  color: #9aa0a6;
+  cursor: not-allowed;
+}
+.btn-primary {
+  background-color: #1976d2;
+  color: white;
+}
+.btn-primary:hover {
+  background-color: #1565c0;
+}
+.btn-primary:active {
+  background-color: #0d47a1;
+}
+.btn-primary:disabled {
+  background-color: #90caf9;
+  color: #e3f2fd;
+}
+
+input[type="text"] {
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  padding: 4px 6px;
+  outline: none;
+  transition: border-color 0.18s;
+}
+input[type="text"]:focus {
+  border-color: #1976d2;
+}
+
 .player { margin:12px 0; padding:12px; border:1px solid #eee; border-radius:6px; }
 .player-row { display:flex; gap:12px; align-items:center; flex-wrap:nowrap; margin:8px 0; }
-.lyric-tool { margin:8px 0; }
-.lyric-tool button { margin-right:6px; padding:4px 8px; }
+.lyric-tool { margin:8px 0; display:flex; gap:6px; align-items:center; }
 .lyric-list { max-height: 60vh; overflow-y:auto; border:1px solid #eee; border-radius:6px; padding:8px; }
 .lyric-item { display:flex; gap:8px; padding:4px 6px; margin:4px 0; border-radius:4px; cursor:pointer; }
 .lyric-item.active { background: #e8f4ff; }
-/* 预览模式高亮 */
-.lyric-item.preview‑hl{
-  background-color:#d7eaff !important;
-}
-/* 预览模式高亮：蓝色边框为主，极淡背景辅助，不抢原有active底色 */
+
+/* 预览高亮：蓝色边框 */
 .lyric-item.preview-hl {
   border: 2px solid #409eff !important;
   box-sizing: border-box;
   background-color: #f0f7ff;
 }
-/* 同时既是编辑选中 + 预览播放：两者叠加，边框保留，底色融合 */
 .lyric-item.active.preview-hl {
   background-color: #dcebff !important;
 }
+
 .ts { min-width: 120px; font-family: monospace; color:#555; }
 .lyric-item input { flex:1; border:1px solid #ccc; padding:3px; }
+
 .modal-mask { position:fixed; inset:0; background:rgba(0,0,0,0.4); display:grid; place-items:center; z:100; }
 .modal { background:white; padding:16px; border-radius:8px; width:520px; }
 .modal textarea { width:100%; box-sizing:border-box; }
