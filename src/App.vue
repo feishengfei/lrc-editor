@@ -10,7 +10,7 @@
     <div class="player">
       <audio ref="audioRef" @timeupdate="onTimeUpdate" @loadedmetadata="onAudioLoaded" />
       <div class="player-row">
-        <button @click="autoStampCurrentLine" :disabled="selectedIndex === null || !isPlaying" style="min-width:50px;">
+        <button @click="autoStampCurrentLine" :disabled="selectedIndex === null || !isPlaying || isPreviewMode" style="min-width:50px;">
           📌打点并下一行
         </button>
         <button @click="togglePlay">{{ isPlaying ? '⏸️暂停' : '▶️播放' }}</button>
@@ -25,6 +25,12 @@
           :disabled="!duration"
           style="flex:1;min-width:320px;"
         />
+        <!-- 预览切换按钮，外框突出 -->
+        <div style="border:2px solid #409eff; border-radius:6px; padding:2px 6px;">
+          <button @click="togglePreviewMode" :style="isPreviewMode ? 'background:#409eff;color:white' : ''">
+            {{ isPreviewMode ? '✏️编辑' : '🔍预览' }}
+          </button>
+        </div>
       </div>
     </div>
 
@@ -45,15 +51,15 @@
 
     <div class="lyric-editor">
       <div class="lyric-tool">
-          <button @click="clearCurrentTimestamps" :disabled="selectedIndex === null">⏱️清除本行时间</button>
-          <button @click="clearAllTimestamps">⚠️清除全部时间戳</button>
+          <button @click="clearCurrentTimestamps" :disabled="selectedIndex === null || isPreviewMode">⏱️清除本行时间</button>
+          <button @click="clearAllTimestamps" :disabled="isPreviewMode">⚠️清除全部时间戳</button>
           |
-          <button @click="insertAbove" :disabled="selectedIndex === null">⬆️选中行上方插入</button>
-          <button @click="insertBelow" :disabled="selectedIndex === null">⬇️选中行下方插入</button>
-          <button @click="deleteSelected" :disabled="selectedIndex === null">🗑️删除当前行</button>
-          <button @click="deleteAllLines">❗删除所有行</button>
-          <button @click="moveUp" :disabled="selectedIndex === null || selectedIndex === 0">🔼上移</button>
-          <button @click="moveDown" :disabled="selectedIndex === null || selectedIndex >= lyrics.length - 1">🔽下移</button>
+          <button @click="insertAbove" :disabled="selectedIndex === null || isPreviewMode">⬆️选中行上方插入</button>
+          <button @click="insertBelow" :disabled="selectedIndex === null || isPreviewMode">⬇️选中行下方插入</button>
+          <button @click="deleteSelected" :disabled="selectedIndex === null || isPreviewMode">🗑️删除当前行</button>
+          <button @click="deleteAllLines" :disabled="isPreviewMode">❗删除所有行</button>
+          <button @click="moveUp" :disabled="selectedIndex === null || selectedIndex === 0 || isPreviewMode">🔼上移</button>
+          <button @click="moveDown" :disabled="selectedIndex === null || selectedIndex >= lyrics.length - 1 || isPreviewMode">🔽下移</button>
       </div>
 
       <div class="lyric-list">
@@ -61,13 +67,16 @@
           v-for="(line, idx) in lyrics"
           :key="idx"
           class="lyric-item"
-          :class="{active: selectedIndex === idx}"
-          @click="selectedIndex = idx"
+          :class="{
+            active: selectedIndex === idx,
+            'preview-hl': isPreviewMode && previewActiveIdx === idx
+          }"
+          @click="!isPreviewMode && (selectedIndex = idx)"
         >
           <span class="ts">
             {{ line.timestamps.map(t => formatTime(t)).join(' / ') }}
           </span>
-          <input v-model="line.text" placeholder="歌词文本" />
+          <input v-model="line.text" placeholder="歌词文本" :disabled="isPreviewMode" />
         </div>
       </div>
     </div>
@@ -115,10 +124,23 @@ const lrcTi = ref('')
 const lrcAr = ref('')
 const lrcAl = ref('')
 
+// ======预览模式新增状态======
+const isPreviewMode = ref(false)
+const previewActiveIdx = ref<number | null>(null)
+// =============================
+
 // 初始保留一个可编辑行
 if (lyrics.value.length === 0) {
     lyrics.value.push({ timestamps: [], text: '' })
     selectedIndex.value = 0
+}
+
+// 切换预览/编辑模式
+function togglePreviewMode(){
+  isPreviewMode.value = !isPreviewMode.value
+  if(!isPreviewMode.value){
+    previewActiveIdx.value = null
+  }
 }
 
 // 仅清空当前行全部时间戳，保留文本，不删除行
@@ -194,6 +216,40 @@ function onTimeUpdate() {
   if (!audioRef.value) return
   currentTime.value = audioRef.value.currentTime
   seekVal.value = currentTime.value
+
+  // 预览模式时间匹配逻辑
+  if(isPreviewMode.value){
+    const now = currentTime.value
+    let bestTs = -1.0
+    let bestIdx:number|null = null
+    // 遍历全部行，找 <=now 的最大时间戳，相同时间取下标靠后的
+    lyrics.value.forEach((line, idx)=>{
+      for(const ts of line.timestamps){
+        if(ts <= now && ts > bestTs){
+          bestTs = ts
+          bestIdx = idx
+        }else if(ts <= now && ts === bestTs){
+          // 时间相等，直接覆盖为更靠后的下标
+          bestIdx = idx
+        }
+      }
+    })
+
+    const oldIdx = previewActiveIdx.value
+    previewActiveIdx.value = bestIdx
+
+    // 高亮行发生变化，执行滚动居中，增加防御判断
+    if(bestIdx !== null && oldIdx !== bestIdx){
+      nextTick(()=>{
+        const items = document.querySelectorAll('.lyric-item')
+        // 边界保护：下标不能超过数组最大索引
+        if (bestIdx >=0 && bestIdx < items.length) {
+          const item = items[bestIdx] as HTMLElement
+          item.scrollIntoView({ block:'center', behavior:'smooth' })
+        }
+      })
+    }
+  }
 }
 
 function onAudioLoaded() {
@@ -345,12 +401,26 @@ async function handleExportLrc() {
 .app { padding: 16px; color: #222; }
 .toolbar button { margin-right: 8px; padding: 4px 8px; }
 .player { margin:12px 0; padding:12px; border:1px solid #eee; border-radius:6px; }
-.player-row { display:flex; gap:12px; align-items:center; gap:12px;flex-wrap:nowrap; margin:8px 0; }
+.player-row { display:flex; gap:12px; align-items:center; flex-wrap:nowrap; margin:8px 0; }
 .lyric-tool { margin:8px 0; }
 .lyric-tool button { margin-right:6px; padding:4px 8px; }
 .lyric-list { max-height: 60vh; overflow-y:auto; border:1px solid #eee; border-radius:6px; padding:8px; }
 .lyric-item { display:flex; gap:8px; padding:4px 6px; margin:4px 0; border-radius:4px; cursor:pointer; }
 .lyric-item.active { background: #e8f4ff; }
+/* 预览模式高亮 */
+.lyric-item.preview‑hl{
+  background-color:#d7eaff !important;
+}
+/* 预览模式高亮：蓝色边框为主，极淡背景辅助，不抢原有active底色 */
+.lyric-item.preview-hl {
+  border: 2px solid #409eff !important;
+  box-sizing: border-box;
+  background-color: #f0f7ff;
+}
+/* 同时既是编辑选中 + 预览播放：两者叠加，边框保留，底色融合 */
+.lyric-item.active.preview-hl {
+  background-color: #dcebff !important;
+}
 .ts { min-width: 120px; font-family: monospace; color:#555; }
 .lyric-item input { flex:1; border:1px solid #ccc; padding:3px; }
 .modal-mask { position:fixed; inset:0; background:rgba(0,0,0,0.4); display:grid; place-items:center; z:100; }
