@@ -1,7 +1,7 @@
 <template>
   <div class="app">
     <div class="toolbar">
-      <button class="btn" @click="handleSelectMp3">📂打开MP3</button>
+      <button class="btn" @click="handleSelectMp3">🎵打开MP3</button>
       <button class="btn" @click="importLrcModalOpen = true">📋粘贴歌词</button>
       <button class="btn" @click="handleImportLrcFile">📁导入LRC</button>
       <button class="btn" @click="handleExportLrc">💾保存到下载目录 output.lrc</button>
